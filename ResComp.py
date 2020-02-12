@@ -20,11 +20,11 @@ class ResComp:
     """
     def __init__(self, *args,
                  res_sz=200,   activ_f=np.tanh,
-                 connect_p=.01, ridge_alpha=.00001,
-                 spect_rad=.9, sparse_res=False,
-                 sigma=0.1,    uniform_weights=False,
+                 connect_p=.03, ridge_alpha=.00001,
+                 spect_rad=.9, sparse_res=True,
+                 sigma=0.1,    uniform_weights=True,
                  gamma=1.,     solver="ridge regression",
-                 signal_dim=1
+                 signal_dim=3
                 ):
 
         num_in = signal_dim
