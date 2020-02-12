@@ -5,6 +5,12 @@ from scipy.linalg import block_diag
 import itertools
 from matplotlib import pyplot as plt
 
+"""
+DEPRECIATED VERSION OF SPECIALIZATION
+Used for testing the new version only
+"""
+
+
 def specializeGraph(A,Base):
     """
     Function to compute the specialization of a graph. Base nodes and
