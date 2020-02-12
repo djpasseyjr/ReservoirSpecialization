@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.linear_model import Ridge
 from scipy import integrate
 from scipy import sparse
-from specialize import specialize
+from specialize import *
 
 class ResComp:
     """ Reservoir Computer Class
@@ -20,7 +20,7 @@ class ResComp:
     """
     def __init__(self, *args,
                  res_sz=200,   activ_f=np.tanh,
-                 connect_p=.1, ridge_alpha=.00001,
+                 connect_p=.01, ridge_alpha=.00001,
                  spect_rad=.9, sparse_res=False,
                  sigma=0.1,    uniform_weights=False,
                  gamma=1.,     solver="ridge regression",
@@ -69,7 +69,7 @@ class ResComp:
 
     # end
 
-    def sparse_init(self, *args):
+    def sparse_init(self, *args, scale_rad=True):
         """ Initialize a sparse reservoir with the adjacency matrix of and Erdos-Renyi
             random graph. Remove self edges. Use uniform weights or integer weights.
             Scale the spectral radius.
@@ -93,11 +93,16 @@ class ResComp:
                 self.res = (self.res != 0).astype(float)
             # end
         # end
-        self.scale_spect_rad()
+
+        # If the new adj did not come from an appropriate specialized network
+        # then adjust the spectral radius.
+        if scale_rad:
+            self.scale_spect_rad()
+
         self.res = self.res.tocsr()
     # end
 
-    def dense_init(self, *args):
+    def dense_init(self, *args, scale_rad=True):
         """ Initialize a sparse reservoir with the adjacency matrix of and Erdos-Renyi
             random graph. Remove self edges. Use uniform weights or integer weights.
             Scale the spectral radius.
@@ -123,7 +128,11 @@ class ResComp:
                 self.res = (self.res != 0).astype(float)
             # end
         # end
-        self.scale_spect_rad()
+
+        # If the new adj did not come from an appropriate specialized network
+        # then adjust the spectral radius.
+        if scale_rad:
+            self.scale_spect_rad()
     # end
 
     def scale_spect_rad(self):
@@ -223,11 +232,14 @@ class ResComp:
             Notes:
             Reservoir needs to be refitted to the data after specialization
         """
+        # Check for non negative entries
+        scale_rad = np.sum(self.res < 0) != 0
+
         S, origin = specialize(self.res, base)
         if self.sparse_res:
-            self.sparse_init(S)
+            self.sparse_init(S, scale_rad=scale_rad)
         else:
-            self.dense_init(S)
+            self.dense_init(S, scale_rad=scale_rad)
         # end
 
         # Reinitialize reservoir
