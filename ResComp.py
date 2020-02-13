@@ -24,30 +24,19 @@ class ResComp:
                  spect_rad=.9, sparse_res=True,
                  sigma=0.1,    uniform_weights=True,
                  gamma=1.,     solver="ridge regression",
-                 signal_dim=3
+                 signal_dim=3, network="random graph",
+                 max_weight=2, min_weight=0
                 ):
 
+        # Support for depriciated version
         num_in = signal_dim
         num_out = signal_dim
-        res_args = (res_sz, connect_p)
-
-        if len(args)==1:
-            A = args[0]
-            res_sz = A.shape[0]
-            res_args = (A,)
-
         if len(args) == 2:
             num_in, num_out = args
         # end
 
-        # Initialize with a supplied reservoir adj matrix
-        if len(args) == 3:
-            A, num_in, num_out = args
-            res_args = (A,)
-        # end
-
         # Set model attributes
-        self.W_in        = np.random.rand(res_sz, num_in) - .5
+        self.W_in        = np.random.rand(res_sz, num_in) - 1.
         self.W_out       = np.zeros((num_out, res_sz))
         self.gamma       = gamma
         self.sigma       = sigma
@@ -58,83 +47,46 @@ class ResComp:
         self.sparse_res  = sparse_res
         self.spect_rad   = spect_rad
         self.is_trained  = False
+        self.network     = network
+        self.connect_p   = connect_p
+        self.res_sz      = res_sz
+        self.min_weight  = min_weight
+        self.max_weight  = max_weight
         self.uniform_weights = uniform_weights
 
-
-        if self.sparse_res:
-            self.sparse_init(*res_args)
+        # Make reservoir based on number of arguments
+        if len(args) == 0:
+            A = self.make_reservoir(res_sz, network)
+        if len(args) == 1:
+            A = sparse.lil_matrix(args[0])
+            res_sz = A.shape[0]
+        if len(args) == 2:
+            A = self.make_reservoir(res_sz, network)
+        # end
+        
+        if not sparse_res:
+            A = A.toarray()
+        self.res = A
+        if self.uniform_weights:
+            self.res = (self.res != 0).astype(float)
+        # end
+        
+        # Multiply matrix by a constant to achive the desired spectral radius
+        self.scale_spect_rad()
+    # end
+    
+    def make_reservoir(self, res_size, network):
+        if network == "preferential attachment":
+            A = self.preferential_attachment(res_size)
+        elif network == "small world":
+            A = self.small_world(res_size)
+        elif network == "random graph":
+            A = self.random_graph(res_size)
         else:
-            self.dense_init(*res_args)
+            raise ValueError(f"The network argument {network} is not in the list [\"preferential attachment\", \"small world\", \"random graph\"]")
         # end
-
-    # end
-
-    def sparse_init(self, *args, scale_rad=True):
-        """ Initialize a sparse reservoir with the adjacency matrix of and Erdos-Renyi
-            random graph. Remove self edges. Use uniform weights or integer weights.
-            Scale the spectral radius.
-        """
-        # Create random reservoir
-        if len(args) == 2:
-            res_sz, connect_p, = args
-            # Make reservoir
-            weights = lambda x: np.ones(x) if self.uniform_weights else np.random.rand(x)*2
-            self.res = sparse.random(res_sz,res_sz,
-                                             density=connect_p,
-                                             dtype=float,
-                                             format="lil",
-                                             data_rvs=weights)
-        # end
-        # Create reservoir from supplied adj matrix
-        if len(args) == 1:
-            A = args[0]
-            self.res = sparse.lil_matrix(A)
-            if self.uniform_weights:
-                self.res = (self.res != 0).astype(float)
-            # end
-        # end
-
-        # If the new adj did not come from an appropriate specialized network
-        # then adjust the spectral radius.
-        if scale_rad:
-            self.scale_spect_rad()
-
-        self.res = self.res.tocsr()
-    # end
-
-    def dense_init(self, *args, scale_rad=True):
-        """ Initialize a sparse reservoir with the adjacency matrix of and Erdos-Renyi
-            random graph. Remove self edges. Use uniform weights or integer weights.
-            Scale the spectral radius.
-        """
-        # Create random reservoir
-        if len(args) == 2:
-            res_sz, connect_p = args
-            if self.uniform_weights:
-                self.res = (np.random.rand(res_sz, res_sz) < connect_p).astype(float)
-            else:
-                self.res = np.random.rand(res_sz, res_sz)
-                self.res[self.res > connect_p] = 0
-                self.res *= 2.0
-            # end
-        # end
-
-        # Create reservoir from given adj matrix
-        if len(args) == 1:
-            self.res = args[0]
-            if sparse.issparse(self.res):
-                self.res = self.res.toarray()
-            if self.uniform_weights:
-                self.res = (self.res != 0).astype(float)
-            # end
-        # end
-
-        # If the new adj did not come from an appropriate specialized network
-        # then adjust the spectral radius.
-        if scale_rad:
-            self.scale_spect_rad()
-    # end
-
+        return A
+    
     def scale_spect_rad(self):
         """ Scales the spectral radius of the reservoir so that spectral_radius(self.res) = self.spect_rad
         """
@@ -155,6 +107,58 @@ class ResComp:
             raise Exception("Reservoir is too sparse to find spectral radius")
         # end
         self.res *= self.spect_rad/curr_rad
+        
+    #-------------------------------------
+    # Graph topology options
+    #-------------------------------------
+    
+    def weights(self,n):
+        if self.uniform_weights:
+            return np.ones(n)
+        else:
+            return (self.max_weight-self.min_weight)*np.random.rand(n) + self.min_weight
+        
+    def random_graph(self, n):
+        """ Create the sparse adj matrix of a random directed graph 
+            on n nodes with probability of any link equal to connect_p
+        """
+        return sparse.random(n,n, density=self.connect_p, dtype=float, format="lil", data_rvs=self.weights)
+    
+    def preferential_attachment(self, n, m=2):
+        """ Create a network via preferential attachment
+        """
+        B = nx.barabasi_albert_graph(n,m)
+        A = nx.adj_matrix(self._randomly_direct(B)).T
+        A = A.astype(float)
+        A[A != 0] = self.weights(np.sum(A != 0))
+        return A
+    
+    def small_world(self, n, k=5, p=.05):
+        """ Create a small world network. (Watts-Strogatz model)
+        """
+        S = nx.watts_strogatz_graph(n,k,p)
+        A = nx.adj_matrix(self._randomly_direct(S)).T
+        A = A.astype(float)
+        A[A != 0] = self.weights(np.sum(A != 0))
+        return A
+    
+    def _randomly_direct(self, G):
+        """ Helper function to randomly direct undirected networkx graphs.
+            Accepts undirected graphs, directs the edges then randomly 
+            deletes half of the directed edges.
+        """
+        edges = list(G.to_directed().edges)
+        M = len(edges)
+        idxs = np.random.choice(range(M),size=M//2, replace=False).astype(int)
+        new_edges = [edges[i] for i in idxs]
+        direct = nx.DiGraph()
+        direct.add_nodes_from(range(len(G.nodes)))
+        direct.add_edges_from(new_edges)
+        return direct
+    
+    #---------------------------
+    # Train and Predict
+    #---------------------------
 
     def drive(self,t,u):
         """
@@ -216,6 +220,10 @@ class ResComp:
             return self.W_out.dot(pred.T), pred.T
         return self.W_out.dot(pred.T)
     # end
+    
+    #---------------------------------------------
+    # Specialization and node importance ranking
+    #---------------------------------------------
 
     def specialize(self, base, random_W_in=True):
         """ Specializes the reservoir nodes. Reinitializes W_in, W_out and the initial reservoir
@@ -223,7 +231,7 @@ class ResComp:
                 Spectral and Dynamic Consequences of Network Specialization
                 https://arxiv.org/abs/1908.04435
 
-            Parameters
+            Parameters:
             base (list of integers): nodes in the graph that should remain fixed
             random_W_in (bool): Create a new random W_in if true, copy rows from the old
                                 W_in so that specialized nodes receive the same input as
@@ -233,15 +241,15 @@ class ResComp:
             Reservoir needs to be refitted to the data after specialization
         """
         # Check for non negative entries
-        scale_rad = np.sum(self.res < 0) != 0
-
+        
         S, origin = specialize(self.res, base)
-        if self.sparse_res:
-            self.sparse_init(S, scale_rad=scale_rad)
-        else:
-            self.dense_init(S, scale_rad=scale_rad)
-        # end
-
+        self.res = S
+        
+        # Check if the matrix is non-negative
+        if np.sum(self.res < 0) != 0:
+            # If not, we need to scale the spectral radius
+            self.scale_spect_rad()
+            
         # Reinitialize reservoir
         res_sz  = S.shape[0]
         num_in  = self.W_in.shape[1]
@@ -251,9 +259,8 @@ class ResComp:
         self.state_0     = np.random.rand(res_sz)
 
         if random_W_in:
-            self.W_in        = np.random.rand(res_sz, num_in) - .5
+            self.W_in        = np.random.rand(res_sz, num_in) - 1.
         else:
-
             new_W_in = np.zeros((res_sz,num_in))
             for i in range(res_sz):
                 # Copy selected rows of the old W_in mapping that correspond with node origins
@@ -270,12 +277,10 @@ class ResComp:
                 https://arxiv.org/abs/1611.06440
 
             Parameters
-            ----------
             u  (solve_ivp solution): system to model
             t  (ndarray): time values to test
 
             Returns
-            -------
             scores (ndarray): Each node's importance score
         """
         if not self.is_trained:
