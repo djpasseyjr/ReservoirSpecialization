@@ -26,7 +26,7 @@ diff_eq_params = {"x0": [-20, 10, -.5],
                   "solver": lorenz_equ
                  }
 
-res_params = {"res_sz": 30,
+RES_PARAMS = {"res_sz": 30,
               "activ_f": np.tanh,
               "connect_p": .12,
               "ridge_alpha": .0001,
@@ -41,7 +41,7 @@ res_params = {"res_sz": 30,
 
 
 def test_rc():
-    params = deepcopy(res_params)
+    params = deepcopy(RES_PARAMS)
     params["solver"] = "ridge"
     params["ridge_alpha"] = 0.00001
     params["uniform_weights"] = True
@@ -86,12 +86,39 @@ def test_ctrl():
     scores = rc.score_nodes(train_t, u, r_0=r_0)
     worst_nodes = np.argsort(scores)[:-num_nodes]
     rc.specialize(worst_nodes, random_W_in=False)
-    param_copy = deepcopy(res_params)
+    param_copy = deepcopy(RES_PARAMS)
     param_copy["res_sz"] = rc.res.shape[0]
     param_copy["connect_p"] = np.sum(rc.res != 0)/ (rc.res.shape[0]**2)
     rc_ctrl = ResComp(**param_copy)
     assert rc.res.shape[0] == rc_ctrl.res.shape[0]
     assert abs(np.sum(rc.res != 0) - np.sum(rc_ctrl.res != 0)) < 5
+    
+def test_ResComp_init():
+    params = deepcopy(RES_PARAMS)
+    params["uniform_weights"] = True
+    A = make_path_matrix()
+    sp_rc = ResComp(A, **params)
+    dense_params = deepcopy(params)
+    dense_params["sparse_res"] = False
+    d_rc = ResComp(A, **dense_params)
+    
+    assert sparse.issparse(sp_rc.res)
+    assert not sparse.issparse(d_rc.res)
+    assert np.all(sp_rc.res.toarray() == d_rc.res)
+    # No Argument Initialization
+    assert sparse.issparse(ResComp(**params).res)
+    assert not sparse.issparse(ResComp(**dense_params).res)
+    
+def test_topologies():
+    params = deepcopy(RES_PARAMS)
+    params["network"] = "preferential attachment"
+    rc = ResComp(**params)
+    assert np.sum(rc.res != 0) == 2*rc.res_sz - 4
+    
+    params["network"] = "small world"
+    rc = ResComp(**params)
+    assert np.sum(rc.res != 0) == rc.res_sz*2
+    
 
 def make_matrix():
      return np.array([[0,1,0, 1,0,0,0,1],
@@ -199,6 +226,9 @@ def test_origin2():
 test_rc()
 test_spec_best()
 test_ctrl()
+test_ResComp_init()
+test_topologies()
+
 test_init()
 test_specialize1()
 test_specialize2()
