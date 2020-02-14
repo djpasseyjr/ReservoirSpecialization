@@ -83,7 +83,7 @@ class ResComp:
         elif network == "random graph":
             A = self.random_graph(res_size)
         else:
-            raise ValueError(f"The network argument {network} is not in the list [\"preferential attachment\", \"small world\", \"random graph\"]")
+            raise ValueError(f"The network argument \"{network}\" is not in the list [\"preferential attachment\", \"small world\", \"random graph\"]")
         # end
         return A
     
@@ -244,6 +244,7 @@ class ResComp:
         
         S, origin = specialize(self.res, base)
         self.res = S
+        self.res_sz = S.shape[0]
         
         # Check if the matrix is non-negative
         if np.sum(self.res < 0) != 0:
