@@ -12,7 +12,8 @@ Reservoir computer class with functionality to specialize and copy the top prefo
 
 #### Learning the lorenz equations
 
-``` from ResComp import *
+``` 
+    from ResComp import *
     from lorenz_sol import *
     
     train_t, test_t, u = lorenz_equ()
@@ -24,7 +25,8 @@ Reservoir computer class with functionality to specialize and copy the top prefo
 
 #### Specializing the best nodes
 
-``` from ResComp import *
+``` 
+    from ResComp import *
     from lorenz_sol import *
     
     train_t, test_t, u = lorenz_equ()
