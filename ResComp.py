@@ -17,6 +17,25 @@ class ResComp:
         1 argument:  Assumes argument to be an adjacency matrix. Makes the internal
                      reservoir equal to the argement.
 
+        Keyword Arguments:
+
+        res_sz:          (Int) Number of nodes in reservoir
+        signal_dim:      (Int) Dimension of the training signal
+
+        network:         (String) Reservoir network topology. Choose from ["random graph", "preferential attachment", "small world"]
+        connect_p:       (Float) Edge probability used if network="random graph"
+        spect_rad:       (Float) Desired reservoir spectral radius
+        sigma:           (Float) Reservoir ode hyperparameter
+        gamma:           (Float) Reservoir ode hyperparameter
+        solver:          (String) Specify solver. Options = ["least squares", "ridge"].
+        ridge_alpha:     (Float) Regularization parameter for the ridge regression solver
+        activ_f:         (Function) Activation function for reservoir nodes. Used in ODE
+        sparse_res:      (Bool) Chose to use sparse matrixes or dense matrixes
+        uniform_weights: (Bool) Choose between uniform or random edge weights
+        max_weight:      (Float) Maximim edge weight if uniform_weights=False
+        min_weight:      (Float) Minimum edge weight if uniform_weights=False. 
+                        ** Note that all weights are scaled after initialization
+                           to achive desired spectral radius **
     """
     def __init__(self, *args,
                  res_sz=200,   activ_f=np.tanh,
@@ -63,18 +82,18 @@ class ResComp:
         if len(args) == 2:
             A = self.make_reservoir(res_sz, network)
         # end
-        
+
         if not sparse_res:
             A = A.toarray()
         self.res = A
         if self.uniform_weights:
             self.res = (self.res != 0).astype(float)
         # end
-        
+
         # Multiply matrix by a constant to achive the desired spectral radius
         self.scale_spect_rad()
     # end
-    
+
     def make_reservoir(self, res_size, network):
         if network == "preferential attachment":
             A = self.preferential_attachment(res_size)
@@ -86,7 +105,7 @@ class ResComp:
             raise ValueError(f"The network argument \"{network}\" is not in the list [\"preferential attachment\", \"small world\", \"random graph\"]")
         # end
         return A
-    
+
     def scale_spect_rad(self):
         """ Scales the spectral radius of the reservoir so that spectral_radius(self.res) = self.spect_rad
         """
@@ -107,23 +126,23 @@ class ResComp:
             raise Exception("Reservoir is too sparse to find spectral radius")
         # end
         self.res *= self.spect_rad/curr_rad
-        
+
     #-------------------------------------
     # Graph topology options
     #-------------------------------------
-    
+
     def weights(self,n):
         if self.uniform_weights:
             return np.ones(n)
         else:
             return (self.max_weight-self.min_weight)*np.random.rand(n) + self.min_weight
-        
+
     def random_graph(self, n):
-        """ Create the sparse adj matrix of a random directed graph 
+        """ Create the sparse adj matrix of a random directed graph
             on n nodes with probability of any link equal to connect_p
         """
         return sparse.random(n,n, density=self.connect_p, dtype=float, format="lil", data_rvs=self.weights)
-    
+
     def preferential_attachment(self, n, m=2):
         """ Create a network via preferential attachment
         """
@@ -132,7 +151,7 @@ class ResComp:
         A = A.astype(float)
         A[A != 0] = self.weights(np.sum(A != 0))
         return A
-    
+
     def small_world(self, n, k=5, p=.05):
         """ Create a small world network. (Watts-Strogatz model)
         """
@@ -141,10 +160,10 @@ class ResComp:
         A = A.astype(float)
         A[A != 0] = self.weights(np.sum(A != 0))
         return A
-    
+
     def _randomly_direct(self, G):
         """ Helper function to randomly direct undirected networkx graphs.
-            Accepts undirected graphs, directs the edges then randomly 
+            Accepts undirected graphs, directs the edges then randomly
             deletes half of the directed edges.
         """
         edges = list(G.to_directed().edges)
@@ -155,7 +174,7 @@ class ResComp:
         direct.add_nodes_from(range(len(G.nodes)))
         direct.add_edges_from(new_edges)
         return direct
-    
+
     #---------------------------
     # Train and Predict
     #---------------------------
@@ -220,7 +239,7 @@ class ResComp:
             return self.W_out.dot(pred.T), pred.T
         return self.W_out.dot(pred.T)
     # end
-    
+
     #---------------------------------------------
     # Specialization and node importance ranking
     #---------------------------------------------
@@ -241,16 +260,16 @@ class ResComp:
             Reservoir needs to be refitted to the data after specialization
         """
         # Check for non negative entries
-        
+
         S, origin = specialize(self.res, base)
         self.res = S
         self.res_sz = S.shape[0]
-        
+
         # Check if the matrix is non-negative
         if np.sum(self.res < 0) != 0:
             # If not, we need to scale the spectral radius
             self.scale_spect_rad()
-            
+
         # Reinitialize reservoir
         res_sz  = S.shape[0]
         num_in  = self.W_in.shape[1]
