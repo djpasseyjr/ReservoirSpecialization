@@ -77,14 +77,19 @@ class ResComp:
         if len(args) == 0:
             A = self.make_reservoir(res_sz, network)
         if len(args) == 1:
-            A = sparse.lil_matrix(args[0])
+            self.network = "unknown topology"
+            if self.sparse_res:
+                A = sparse.lil_matrix(args[0])
+            else:
+                A = args[0]
             res_sz = A.shape[0]
         if len(args) == 2:
             A = self.make_reservoir(res_sz, network)
         # end
 
-        if not sparse_res:
+        if not sparse_res and sparse.issparse(A):
             A = A.toarray()
+            
         self.res = A
         if self.uniform_weights:
             self.res = (self.res != 0).astype(float)
@@ -92,6 +97,8 @@ class ResComp:
 
         # Multiply matrix by a constant to achive the desired spectral radius
         self.scale_spect_rad()
+        # Adjust data members to match reservoir
+        self.set_res_data_members()
     # end
 
     def make_reservoir(self, res_size, network):
@@ -105,7 +112,19 @@ class ResComp:
             raise ValueError(f"The network argument \"{network}\" is not in the list [\"preferential attachment\", \"small world\", \"random graph\"]")
         # end
         return A
-
+    
+    def set_res_data_members(self):
+        
+        self.res_sz = self.res.shape[0]
+        self.connect_p = np.sum(self.res != 0)/(self.res_sz)**2
+        if self.sparse_res:
+            edge_weights = list(sparse.dok_matrix(self.res).values())
+        else:
+            edge_weights = self.res[self.res != 0]
+        self.max_weight = np.max(edge_weights)
+        self.min_weight = np.min(edge_weights)
+        self.uniform_weights = (self.max_weight - self.min_weight) < 1e-12
+        
     def scale_spect_rad(self):
         """ Scales the spectral radius of the reservoir so that spectral_radius(self.res) = self.spect_rad
         """
