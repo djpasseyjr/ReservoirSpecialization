@@ -220,11 +220,16 @@ class ResComp:
         return states
     # end
 
-    def fit(self, t, u):
+    def fit(self, t, u, return_states=False):
         """
         Parameters
-        t (1 dim ndarray): an array of time values
-        u (function)     : for each i, u(t[i]) produces the state of the system that is being learned
+        t (1 dim ndarray)    : an array of time values
+        u (function)         : for each i, u(t[i]) produces the state of the system that is being learned
+        return_states (bool) : If True returns the node states of the reservoir
+        
+        Returns
+        err (float) : Error in the fit (norm of residual)
+            Optionally returns: drive_states : (ndarray) of node states
         """
         driven_states    = self.drive(t,u)
         true_states      = u(t).T
@@ -238,6 +243,11 @@ class ResComp:
         # end
         error = np.mean(np.linalg.norm(self.W_out.dot(driven_states.T)-true_states.T,ord=2,axis=0))
         self.is_trained = True
+        
+        if return_states:
+            # Return node states
+            return error, drive_states
+        
         return error
     # end
 
