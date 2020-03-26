@@ -16,6 +16,12 @@ def specialize(A, base):
     A: (Adjacency matrix) May be an  scipy.sparse matrix or ndarray
     base: List of nodes
 
+    Returns
+    ---------
+    S: Specialized adjacency matrix (same data structure as A)
+    origin (dict): The origin of every node in S. i.e. origin[31] outputs which
+                   node A was copied to form node 31 in S.
+
     """
 
     base = list(base)
@@ -129,6 +135,23 @@ class LightGraph(object):
         # Add edge from the graph to scc
         self.edges[(labels[e[0]],e[1])] = e_weight
 
+        self.n += len(compnt)
+        return labels
+
+    def add_scc(self, compnt, edges, weight_dict):
+        """ Adds a strongly connected component and one edge
+            from the rest of the graph to the scc
+        """
+        # New node labels and origins
+        labels = dict()
+        for i,c in enumerate(compnt):
+            labels[c] = i+self.n
+            self.origin.append(c)
+
+        # Add edges in scc
+        for i,j in edges:
+            self.edges[(labels[i],labels[j])] = weight_dict[(i,j)]
+        # Add edge from the graph to scc
         self.n += len(compnt)
         return labels
 
