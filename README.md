@@ -5,7 +5,7 @@ Reservoir computer class with functionality to specialize and copy the top prefo
 1. `ResComp.py`      : The reservoir computer class
 2. `specialize.py`   : The optimized specialization algorithm
 3. `lorenz_sol.py`   : The lorenz equations and a solver
-4. `specializeGraph` : A depreciated version of the specialization algorithm used for testing the new version
+4. `specializeGraph.py` : A depreciated version of the specialization algorithm used for testing the new version
 5. `tests.py`        : Tests. Run this file to make sure everything is working properly.
 
 ## Examples
