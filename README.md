@@ -10,7 +10,8 @@ This isn't a registered Python package but it is in the right format. To install
 git clone https://github.com/djpasseyjr/ReservoirSpecialization.git
 ```
 **Add repo directory to PYTHONPATH**
-Open your `.bashrc` or `.bash_profile` file. (It should be located in your home directory.) Add the following line:
+
+Open your `.bashrc` or `.bash_profile` file. (It should be located in your home directory for Linux or Mac. I'm not sure about Windows) Add the following line:
 ```
 export PYTHONPATH="${PYTHONPATH}:/path/to/repo/ReservoirSpecialization"
 ```
