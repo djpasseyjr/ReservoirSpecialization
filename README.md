@@ -12,7 +12,7 @@ git clone https://github.com/djpasseyjr/ReservoirSpecialization.git
 **Add repo directory to PYTHONPATH**
 Open your `.bashrc` or `.bash_profile` file. (It should be located in your home directory.) Add the following line:
 ```
-export PYTHONPATH="${PYTHONPATH}:/Users/djpassey/Code/ReservoirSpecialization"
+export PYTHONPATH="${PYTHONPATH}:/path/to/repo/ReservoirSpecialization"
 ```
 Restart your bash session. After this, the following code should work:
 ```
