@@ -1,6 +1,0 @@
-README.md
-setup.py
-rescomp_djpassey.egg-info/PKG-INFO
-rescomp_djpassey.egg-info/SOURCES.txt
-rescomp_djpassey.egg-info/dependency_links.txt
-rescomp_djpassey.egg-info/top_level.txt
