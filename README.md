@@ -3,7 +3,7 @@ Reservoir computer class with functionality to specialize and copy the top prefo
 
 ## Installation Instructions
 
-This isn't a registered Python package but it is in the right format. To install the `rescomp` package included in this repository, clone the repository and add the repository directory to your `PYTHONPATH` so that Python can locate the package. After doing this, you can include the package classes and functions with `import rescomp as rc` from any directory.
+To install the `rescomp` package included in this repository, clone the repository and add the repository directory to your `PYTHONPATH` so that Python can locate the package. After doing this, you can include the package classes and functions with `import rescomp as rc` from any directory.
 
 **Clone the repo**
 ```
