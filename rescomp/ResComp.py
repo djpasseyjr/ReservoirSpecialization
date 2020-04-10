@@ -36,7 +36,7 @@ class ResComp:
         sparse_res:      (Bool) Chose to use sparse matrixes or dense matrixes
         uniform_weights: (Bool) Choose between uniform or random edge weights
         max_weight:      (Float) Maximim edge weight if uniform_weights=False
-        min_weight:      (Float) Minimum edge weight if uniform_weights=False. 
+        min_weight:      (Float) Minimum edge weight if uniform_weights=False.
                         ** Note that all weights are scaled after initialization
                            to achive desired spectral radius **
     """
@@ -93,7 +93,7 @@ class ResComp:
 
         if not sparse_res and sparse.issparse(A):
             A = A.toarray()
-            
+
         self.res = A
         if self.uniform_weights:
             self.res = (self.res != 0).astype(float)
@@ -116,9 +116,9 @@ class ResComp:
             raise ValueError(f"The network argument \"{network}\" is not in the list [\"preferential attachment\", \"small world\", \"random graph\"]")
         # end
         return A
-    
+
     def set_res_data_members(self):
-        
+
         self.res_sz = self.res.shape[0]
         self.connect_p = np.sum(self.res != 0)/(self.res_sz)**2
         self.W_in        = np.random.rand(self.res_sz, self.signal_dim) - 1.
@@ -131,7 +131,7 @@ class ResComp:
         self.max_weight = np.max(edge_weights)
         self.min_weight = np.min(edge_weights)
         self.uniform_weights = (self.max_weight - self.min_weight) < 1e-12
-        
+
     def scale_spect_rad(self):
         """ Scales the spectral radius of the reservoir so that spectral_radius(self.res) = self.spect_rad
         """
@@ -214,7 +214,7 @@ class ResComp:
 
         # Reservoir ode
         def res_f(r,t):
-            return self.gamma*(-1*r + self.activ_f(self.res.dot(r) + self.sigma*self.W_in.dot(u(t))))
+            return self.gamma*(-1*r + self.activ_f(self.res @ r + self.sigma*self.W_in @ u(t)))
         #end
 
         r_0    = self.state_0
@@ -229,7 +229,7 @@ class ResComp:
         t (1 dim ndarray)    : an array of time values
         u (function)         : for each i, u(t[i]) produces the state of the system that is being learned
         return_states (bool) : If True returns the node states of the reservoir
-        
+
         Returns
         err (float) : Error in the fit (norm of residual)
             Optionally returns: drive_states : (ndarray) of node states
@@ -244,13 +244,13 @@ class ResComp:
             ridge_regression.fit(driven_states,true_states)
             self.W_out       = ridge_regression.coef_
         # end
-        error = np.mean(np.linalg.norm(self.W_out.dot(driven_states.T)-true_states.T,ord=2,axis=0))
+        error = np.mean(np.linalg.norm(self.W_out @ driven_states.T - true_states.T,ord=2,axis=0))
         self.is_trained = True
-        
+
         if return_states:
             # Return node states
             return error, driven_states
-        
+
         return error
     # end
 
@@ -262,18 +262,18 @@ class ResComp:
 
         # Reservoir prediction ode
         def res_pred_f(r,t):
-            return self.gamma*(-1*r + self.activ_f(self.res.dot(r) + self.sigma * self.W_in.dot(self.W_out.dot(r))))
+            return self.gamma*(-1*r + self.activ_f(self.res @ r + self.sigma * self.W_in @ (self.W_out @ r)))
         # end
         if r_0 is None and u_0 is None:
             r_0  = self.state_0
         # end
         elif r_0 is None and u_0 is not None:
-            r_0 = self.W_in.dot(u_0)
+            r_0 = self.W_in @ u_0
         # end
         pred = integrate.odeint(res_pred_f, r_0, t)
         if return_states:
-            return self.W_out.dot(pred.T), pred.T
-        return self.W_out.dot(pred.T)
+            return self.W_out @ pred.T, pred.T
+        return self.W_out @ pred.T
     # end
 
     #---------------------------------------------
@@ -343,7 +343,7 @@ class ResComp:
             raise Exception("Reservoir is untrained")
 
         pre, r     = self.predict(t, return_states=True, r_0=r_0, u_0=u_0)
-        derivative = self.W_out.T.dot(pre - u(t))
+        derivative = self.W_out.T @ (pre - u(t))
         scores     = np.mean(np.abs(derivative*r), axis=1)
         return scores
     # end
