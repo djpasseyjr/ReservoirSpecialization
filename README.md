@@ -3,16 +3,17 @@ Reservoir computer class with functionality to specialize and copy the top prefo
 
 ## Installation Instructions
 
-This isn't a registered Python package but it is in the right format. To install the `rescomp` package included in this repository, clone the repository and add the repository directory to your `PYTHONPATH` so that Python can locate the package. After doing this, you can include the package classes and functions with `import rescomp as rc` from any directory.
+To install the `rescomp` package included in this repository, clone the repository and add the repository directory to your `PYTHONPATH` so that Python can locate the package. After doing this, you can include the package classes and functions with `import rescomp as rc` from any directory.
 
 **Clone the repo**
 ```
 git clone https://github.com/djpasseyjr/ReservoirSpecialization.git
 ```
 **Add repo directory to PYTHONPATH**
-Open your `.bashrc` or `.bash_profile` file. (It should be located in your home directory.) Add the following line:
+
+Open your `.bashrc` or `.bash_profile` file. (It should be located in your home directory for Linux or Mac. I'm not sure about Windows) Add the following line:
 ```
-export PYTHONPATH="${PYTHONPATH}:/Users/djpassey/Code/ReservoirSpecialization"
+export PYTHONPATH="${PYTHONPATH}:/path/to/repo/ReservoirSpecialization"
 ```
 Restart your bash session. After this, the following code should work:
 ```
