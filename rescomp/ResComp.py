@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.linear_model import Ridge
 from scipy import integrate
 from scipy import sparse
-from .specialize import *
+from rescomp.specialize import *
 from math import floor
 from scipy import integrate
 
@@ -152,6 +152,10 @@ class ResComp:
             raise Exception("Reservoir is too sparse to find spectral radius")
         # end
         self.res *= self.spect_rad/curr_rad
+        # Convert to csr if sparse
+        if sp_res:
+            self.res = self.res.tocsr()
+
 
     #-------------------------------------
     # Graph topology options
