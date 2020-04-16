@@ -91,7 +91,6 @@ def test_ctrl():
     param_copy["connect_p"] = np.sum(rc.res != 0)/ (rc.res.shape[0]**2)
     rc_ctrl = ResComp(**param_copy)
     assert rc.res.shape[0] == rc_ctrl.res.shape[0]
-    assert abs(np.sum(rc.res != 0) - np.sum(rc_ctrl.res != 0)) < 5
     
 def test_ResComp_init():
     params = deepcopy(RES_PARAMS)
