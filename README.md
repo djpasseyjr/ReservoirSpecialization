@@ -11,7 +11,8 @@ git clone https://github.com/djpasseyjr/ReservoirSpecialization.git
 ```
 **Add repo directory to PYTHONPATH**
 
-Open your `.bashrc` or `.bash_profile` file. (It should be located in your home directory for Linux or Mac. I'm not sure about Windows) Add the following line:
+Open your `.bashrc` or `.bash_profile` file. (It should be located in your home directory for Linux or Mac.)
+Add the following line:
 ```
 export PYTHONPATH="${PYTHONPATH}:/path/to/repo/ReservoirSpecialization"
 ```
@@ -24,3 +25,4 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> import rescomp as rc
 >>> 
 ```
+For Windows instead of updating `.bashrc` or `.bash_profile` go to system, then advanced system settings, then enviroment variables, create a new system variable called PYTHONPATH and add as the value C:/path/to/repo/ReservoirSpecialization, this will add the location to the python path. Now import rescomp as rc will work.
