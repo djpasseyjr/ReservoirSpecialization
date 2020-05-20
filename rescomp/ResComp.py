@@ -227,6 +227,15 @@ class ResComp:
         return states
     # end
 
+    def solve_wout(self, internal_states, targets):
+        if self.solver == "least squares":
+            W_out = np.linalg.lstsq(internal_states, targets, rcond=None)[0].T
+        else:
+            ridge_regression = Ridge(alpha=self.ridge_alpha, fit_intercept=False)
+            ridge_regression.fit(internal_states, targets)
+            W_out       = ridge_regression.coef_
+        return W_out
+
     def fit(self, t, u, return_states=False):
         """
         Parameters
@@ -235,28 +244,99 @@ class ResComp:
         return_states (bool) : If True returns the node states of the reservoir
 
         Returns
-        err (float) : Error in the fit (norm of residual)
+        err (float) : Error in the fit (2-norm of residuals)
             Optionally returns: drive_states : (ndarray) of node states
         """
         driven_states    = self.drive(t,u)
         true_states      = u(t).T
-        if self.solver == "least squares":
-            self.W_out = np.linalg.lstsq(driven_states, true_states, rcond=None)[0].T
-        # end
-        else:
-            ridge_regression = Ridge(alpha=self.ridge_alpha, fit_intercept=False)
-            ridge_regression.fit(driven_states,true_states)
-            self.W_out       = ridge_regression.coef_
-        # end
-        error = np.mean(np.linalg.norm(self.W_out @ driven_states.T - true_states.T,ord=2,axis=0))
+        self.W_out = self.solve_wout(driven_states, true_states)
         self.is_trained = True
-
+        # Compute error
+        diff = self.W_out @ driven_states.T - true_states.T
+        error = np.mean(np.linalg.norm(diff, ord=2, axis=0))
         if return_states:
             # Return node states
             return error, driven_states
-
         return error
     # end
+
+    def fit_batch(self, t, u, time_window, overlap=0.0, return_states=False):
+        """ Train reservoir computer on the signal as a batch of short signals instead
+            of on one long continuous signal
+
+            Parameters
+            t (1 dimensional array or list of one dimensional arrays): Time values corresponding to signal u
+            u (function or list of functions that accept time values): Input signal
+            time_window (float): How long to make each shorter signal in time units. (If t is in seconds
+                setting time_window to 2.0 will mean that each shorter signal is 2 seconds long
+            overlap (float): Less than one, greater or equal to zero. (Defaults to zero) Percent that
+                each signal window overlaps the previous signal window
+        """
+        internal_states, target = self.drive_batch(t, u, time_window, overlap=overlap)
+        # Solve for W_out
+        self.W_out = self.solve_wout(internal_states, target)
+        self.is_trained = True
+        # Compute error
+        diff = self.W_out @ internal_states.T - target.T
+        error = np.mean(np.linalg.norm(diff, ord=2, axis=0))
+        if return_states:
+            # Return node states
+            return error, internal_states
+        return error
+
+    def drive_batch(self, t, u, time_window, overlap=0.0):
+        """ Convert signal to a batch of signals and drive the reservoir with each one.
+            Concatenate the output signals and return as one array each of states and targets.
+        """
+        internals = ()
+        targets = ()
+        # Dispatch on types of u and t
+        if isinstance(u, list) and isinstance(t, list):
+            for time, signal in zip(t, u):
+                internal, target = self._drive_batch(time, signal, time_window, overlap=overlap)
+                internals += internal
+                targets += target
+        else:
+            internals, targets = self._drive_batch(t, u, time_window, overlap=overlap)
+        # Stack internal states and targets
+        internals = np.vstack(internals)
+        targets = np.vstack(targets)
+        return internals, targets
+
+    def _drive_batch(self, t, u, time_window, overlap=0.0):
+        ts = self._partition(t, time_window, overlap=overlap)
+        internals = ()
+        targets = ()
+        for time in ts:
+            assert (time[-1] - time[0]) < time_window, f"Subarray covers {time[-1] - time[0]} seconds but `time_window` is {time_window}"
+            # Set initial condition
+            self.state_0 = self.W_in @ u(time[0])
+            internals += (self.drive(time,u),)
+            targets += (u(time).T,)
+        return internals, targets
+
+
+
+    def _partition(self, t, time_window, overlap=0.0):
+        """ Partition `t` into subarrays that each include `time_window` seconds. The variable
+            `overlap` determines what percent of each sub-array overlaps the previous sub-array.
+            The last subarray may not include the full time window.
+        """
+        if (overlap >= 1) or (overlap < 0.0):
+            raise ValueError("Overlap argument must be greater than or equal to zero and less than one")
+
+        ts = ()
+        start = 0
+        tmax = t[start] + time_window
+        for i,time in enumerate(t):
+            if time > tmax:
+                end = i-1
+                ts += (t[start:end],)
+                start = start + ceil((end - start) * (1.0 - overlap))
+
+                tmax = t[start] + time_window
+        ts += (t[start:],)
+        return ts
 
 
     def predict(self, t, u_0=None, r_0=None, return_states=False):
@@ -279,6 +359,7 @@ class ResComp:
             return self.W_out @ pred.T, pred.T
         return self.W_out @ pred.T
     # end
+
 
     #---------------------------------------------
     # Specialization and node importance ranking
@@ -353,6 +434,8 @@ class ResComp:
     # end
 
 # end class
+
+
 
 #------------------------------------------------------------
 # Example System: Lorenz Equations
