@@ -48,7 +48,7 @@ class DrivenResComp(ResComp):
             Optionally returns: drive_states : (ndarray) of node states
         """
         driven_states    = self.drive(t, out_signal, drive_signal)
-        true_states      = out_signal(t).T
+        true_states      = out_signal(t)
         self.W_out = self.solve_wout(driven_states, true_states)
         self.is_trained = True
         # Compute error
@@ -115,7 +115,7 @@ class DrivenResComp(ResComp):
             # Set initial condition
             self.state_0 = self.W_in @ u(time[0])
             internals += (self.drive(time, u, u_drive),)
-            targets += (u(time).T,)
+            targets += (u(time),)
         return internals, targets
 
 
