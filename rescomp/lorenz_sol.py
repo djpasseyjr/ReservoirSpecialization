@@ -8,9 +8,10 @@ def lorentz_deriv(t0, X, sigma=10., beta=8./3, rho=28.0):
     return [sigma * (y - x), x * (rho - z) - y, x * y - beta * z]
 # end
 
-def lorenz_equ(x0=[-20, 10, -.5], begin=0, end=60, timesteps=60000, train_per=.66):
+def lorenz_equ(x0=[-20, 10, -.5], begin=0, end=60, timesteps=60000, train_per=.66, clip=0):
     """Use solve_ivp to produce a solution to the lorenz equations"""
     t = np.linspace(begin,end,timesteps)
+    clipped_start = floor(timesteps * clip / (end - begin))
     n_train = floor(train_per*len(t))
     train_t = t[:n_train]
     test_t = t[(n_train+1):]
