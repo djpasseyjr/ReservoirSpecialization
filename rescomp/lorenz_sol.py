@@ -12,7 +12,7 @@ def lorenz_equ(x0=[-20, 10, -.5], begin=0, end=60, timesteps=60000, train_per=.6
     """Use solve_ivp to produce a solution to the lorenz equations"""
     t = np.linspace(begin,end,timesteps)
     clipped_start = floor(timesteps * clip / (end - begin))
-    n_train = floor(train_per * timesteps * (end - clip) / (end - begin))
+    n_train = clipped_start + train_per * (end - clip) / (end - begin) * timesteps
     train_t = t[clipped_start:n_train]
     test_t = t[n_train:]
     u = integrate.solve_ivp(lorentz_deriv, (begin,end), x0, dense_output=True).sol
