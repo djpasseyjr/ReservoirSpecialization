@@ -253,7 +253,7 @@ class ResComp:
         self.is_trained = True
         # Compute error
         diff = self.W_out @ driven_states.T - true_states.T
-        error = np.mean(np.linalg.norm(diff, ord=2, axis=0))
+        error = np.mean(np.linalg.norm(diff, ord=2, axis=0)**2)**(1/2)
         if return_states:
             # Return node states
             return error, driven_states
