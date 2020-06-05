@@ -3,7 +3,7 @@ from sklearn.linear_model import Ridge
 from scipy import integrate
 from scipy import sparse
 from rescomp.specialize import *
-from math import floor
+from math import floor, ceil
 from scipy import integrate
 
 
@@ -132,8 +132,27 @@ class ResComp:
         self.min_weight = np.min(edge_weights)
         self.uniform_weights = (self.max_weight - self.min_weight) < 1e-12
 
+    def spectral_rad(self, A):
+        """ Compute spectral radius via max radius of the strongly connected components """
+        g = nx.DiGraph(A)
+        scc = nx.strongly_connected_components(g)
+        rad = 0
+        for cmp in scc:
+            # If the component is one node, spectral radius is the edge weight of it's self loop
+            if len(cmp) == 1:
+                i = cmp.pop()
+                max_eig = A[i,i]
+            else:
+                # Compute spectral radius of strongly connected components
+                adj = nx.adj_matrix(nx.subgraph(g,cmp))
+                max_eig = np.max(np.abs(np.linalg.eigvals(adj.T.toarray())))
+            if max_eig > rad:
+                rad = max_eig
+        return rad
+
     def scale_spect_rad(self):
-        """ Scales the spectral radius of the reservoir so that spectral_radius(self.res) = self.spect_rad
+        """ Scales the spectral radius of the reservoir so that
+            spectral_rad(self.res) = self.spect_rad
         """
         sp_res = sparse.issparse(self.res)
         # Remove self edges
