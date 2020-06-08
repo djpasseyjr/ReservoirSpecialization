@@ -3,7 +3,7 @@ from sklearn.linear_model import Ridge
 from scipy import integrate
 from scipy import sparse
 from rescomp.specialize import *
-from math import floor
+from math import floor, ceil
 from scipy import integrate
 
 
@@ -59,7 +59,7 @@ class ResComp:
 
         # Set model attributes
         self.signal_dim  = signal_dim
-        self.W_in        = np.random.rand(res_sz, num_in) - 1.
+        self.W_in        = np.random.rand(res_sz, num_in) - 0.5
         self.W_out       = np.zeros((num_out, res_sz))
         self.gamma       = gamma
         self.sigma       = sigma
@@ -121,7 +121,7 @@ class ResComp:
 
         self.res_sz = self.res.shape[0]
         self.connect_p = np.sum(self.res != 0)/(self.res_sz)**2
-        self.W_in        = np.random.rand(self.res_sz, self.signal_dim) - 1.
+        self.W_in        = np.random.rand(self.res_sz, self.signal_dim) - 0.5
         self.W_out       = np.zeros((self.signal_dim, self.res_sz))
         self.state_0     = np.random.rand(self.res_sz)
         if self.sparse_res:

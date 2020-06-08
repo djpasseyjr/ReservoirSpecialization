@@ -49,8 +49,8 @@ class DrivenResComp(ResComp):
         """
         driven_states    = self.drive(t, out_signal, drive_signal)
         true_states      = out_signal(t)
-        self.W_out = self.solve_wout(driven_states, true_states)
-        self.is_trained = True
+        self.W_out       = self.solve_wout(driven_states, true_states)
+        self.is_trained  = True
         # Compute error
         diff = self.W_out @ driven_states.T - true_states.T
         error = np.mean(np.linalg.norm(diff, ord=2,axis=0))
