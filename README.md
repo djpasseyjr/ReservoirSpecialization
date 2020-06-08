@@ -11,7 +11,7 @@ git clone https://github.com/djpasseyjr/ReservoirSpecialization.git
 ```
 **Add repo directory to PYTHONPATH**
 
-Open your `.bashrc` or `.bash_profile` file. (It should be located in your home directory for Linux or Mac.)
+Open `.bash_profile` file. (It should be located in your home directory for Linux or Mac.) If it doesn't exist, create an empty `.bash_profile` in your home directory.
 Add the following line:
 ```
 export PYTHONPATH="${PYTHONPATH}:/path/to/repo/ReservoirSpecialization"

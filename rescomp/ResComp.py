@@ -132,8 +132,27 @@ class ResComp:
         self.min_weight = np.min(edge_weights)
         self.uniform_weights = (self.max_weight - self.min_weight) < 1e-12
 
+    def spectral_rad(self, A):
+        """ Compute spectral radius via max radius of the strongly connected components """
+        g = nx.DiGraph(A)
+        scc = nx.strongly_connected_components(g)
+        rad = 0
+        for cmp in scc:
+            # If the component is one node, spectral radius is the edge weight of it's self loop
+            if len(cmp) == 1:
+                i = cmp.pop()
+                max_eig = A[i,i]
+            else:
+                # Compute spectral radius of strongly connected components
+                adj = nx.adj_matrix(nx.subgraph(g,cmp))
+                max_eig = np.max(np.abs(np.linalg.eigvals(adj.T.toarray())))
+            if max_eig > rad:
+                rad = max_eig
+        return rad
+
     def scale_spect_rad(self):
-        """ Scales the spectral radius of the reservoir so that spectral_radius(self.res) = self.spect_rad
+        """ Scales the spectral radius of the reservoir so that
+            spectral_rad(self.res) = self.spect_rad
         """
         sp_res = sparse.issparse(self.res)
         # Remove self edges
@@ -253,7 +272,7 @@ class ResComp:
         self.is_trained = True
         # Compute error
         diff = self.W_out @ driven_states.T - true_states.T
-        error = np.mean(np.linalg.norm(diff, ord=2, axis=0))
+        error = np.mean(np.linalg.norm(diff, ord=2, axis=0)**2)**(1/2)
         if return_states:
             # Return node states
             return error, driven_states
@@ -294,8 +313,8 @@ class ResComp:
         if isinstance(u, list) and isinstance(t, list):
             for time, signal in zip(t, u):
                 internal, target = self._drive_batch(time, signal, time_window, overlap=overlap)
-                internals += internal
-                targets += target
+                internals += internal # Concatenate internals
+                targets += target # Concatenate targets
         else:
             internals, targets = self._drive_batch(t, u, time_window, overlap=overlap)
         # Stack internal states and targets
@@ -328,19 +347,25 @@ class ResComp:
         ts = ()
         start = 0
         tmax = t[start] + time_window
-        for i,time in enumerate(t):
-            if time > tmax:
+        i = 0
+        t_end = len(t) - 1
+        while  i < t_end:
+            if t[i] > tmax:
                 end = i-1
                 ts += (t[start:end],)
                 start = start + ceil((end - start) * (1.0 - overlap))
-
+                i = start
                 tmax = t[start] + time_window
+            i += 1
         ts += (t[start:],)
         return ts
 
 
     def predict(self, t, u_0=None, r_0=None, return_states=False):
-
+        """
+            Parameters:
+            -----------
+        """
         if not self.is_trained:
             raise Exception("Reservoir is untrained")
 

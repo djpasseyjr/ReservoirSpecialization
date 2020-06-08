@@ -91,7 +91,7 @@ def test_ctrl():
     param_copy["connect_p"] = np.sum(rc.res != 0)/ (rc.res.shape[0]**2)
     rc_ctrl = ResComp(**param_copy)
     assert rc.res.shape[0] == rc_ctrl.res.shape[0]
-    
+
 def test_ResComp_init():
     params = deepcopy(RES_PARAMS)
     params["uniform_weights"] = True
@@ -100,24 +100,24 @@ def test_ResComp_init():
     dense_params = deepcopy(params)
     dense_params["sparse_res"] = False
     d_rc = ResComp(A, **dense_params)
-    
+
     assert sparse.issparse(sp_rc.res)
     assert not sparse.issparse(d_rc.res)
     assert np.all(sp_rc.res.toarray() == d_rc.res)
     # No Argument Initialization
     assert sparse.issparse(ResComp(**params).res)
     assert not sparse.issparse(ResComp(**dense_params).res)
-    
+
 def test_topologies():
     params = deepcopy(RES_PARAMS)
     params["network"] = "preferential attachment"
     rc = ResComp(**params)
     assert np.sum(rc.res != 0) == 2*rc.res_sz - 4
-    
+
     params["network"] = "small world"
     rc = ResComp(**params)
     assert np.sum(rc.res != 0) == rc.res_sz*2
-    
+
 
 def make_matrix():
      return np.array([[0,1,0, 1,0,0,0,1],
@@ -222,11 +222,22 @@ def test_origin2():
         copies[origin[i]] += 1
     assert np.all(copies == np.array([1., 3., 3., 1., 1., 1.]))
 
+def test_spect_rad():
+    rc = ResComp()
+    for i in range(10):
+        A = rc.random_graph(200).toarray()
+        scc_rho = rc.spectral_rad(A)
+        iter_rho = np.max(np.abs(np.linalg.eigvals(A)))
+        assert np.isclose(scc_rho, iter_rho)
+
+
+
 test_rc()
 test_spec_best()
 test_ctrl()
 test_ResComp_init()
 test_topologies()
+test_spect_rad()
 
 test_init()
 test_specialize1()

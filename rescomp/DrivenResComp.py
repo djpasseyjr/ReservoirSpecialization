@@ -118,29 +118,6 @@ class DrivenResComp(ResComp):
             targets += (u(time),)
         return internals, targets
 
-
-
-    def _partition(self, t, time_window, overlap=0.0):
-        """ Partition `t` into subarrays that each include `time_window` seconds. The variable
-            `overlap` determines what percent of each sub-array overlaps the previous sub-array.
-            The last subarray may not include the full time window.
-        """
-        if (overlap >= 1) or (overlap < 0.0):
-            raise ValueError("Overlap argument must be greater than or equal to zero and less than one")
-
-        ts = ()
-        start = 0
-        tmax = t[start] + time_window
-        for i,time in enumerate(t):
-            if time > tmax:
-                end = i-1
-                ts += (t[start:end],)
-                start = start + ceil((end - start) * (1.0 - overlap))
-
-                tmax = t[start] + time_window
-        ts += (t[start:],)
-        return ts
-
     def predict(self, t, drive_signal, u_0=None, r_0=None, return_states=False):
         """
         Parameters
