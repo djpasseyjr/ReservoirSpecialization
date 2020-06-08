@@ -313,8 +313,8 @@ class ResComp:
         if isinstance(u, list) and isinstance(t, list):
             for time, signal in zip(t, u):
                 internal, target = self._drive_batch(time, signal, time_window, overlap=overlap)
-                internals += internal
-                targets += target
+                internals += internal # Concatenate internals
+                targets += target # Concatenate targets
         else:
             internals, targets = self._drive_batch(t, u, time_window, overlap=overlap)
         # Stack internal states and targets
@@ -347,19 +347,25 @@ class ResComp:
         ts = ()
         start = 0
         tmax = t[start] + time_window
-        for i,time in enumerate(t):
-            if time > tmax:
+        i = 0
+        t_end = len(t) - 1
+        while  i < t_end:
+            if t[i] > tmax:
                 end = i-1
                 ts += (t[start:end],)
                 start = start + ceil((end - start) * (1.0 - overlap))
-
+                i = start
                 tmax = t[start] + time_window
+            i += 1
         ts += (t[start:],)
         return ts
 
 
     def predict(self, t, u_0=None, r_0=None, return_states=False):
-
+        """
+            Parameters:
+            -----------
+        """
         if not self.is_trained:
             raise Exception("Reservoir is untrained")
 
