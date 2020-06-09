@@ -226,11 +226,14 @@ def test_spect_rad():
     rc = ResComp()
     for i in range(10):
         A = rc.random_graph(200).toarray()
-        scc_rho = rc.spectral_rad(A)
+        scc_rho = rc._spectral_rad(A)
         iter_rho = np.max(np.abs(np.linalg.eigvals(A)))
         assert np.isclose(scc_rho, iter_rho)
 
-
+def test_zero_radius():
+    A = np.zeros((200,200))
+    rc = ResComp(A, sparse_res=True)
+    assert rc.spect_rad == 0.0
 
 test_rc()
 test_spec_best()
@@ -238,6 +241,7 @@ test_ctrl()
 test_ResComp_init()
 test_topologies()
 test_spect_rad()
+test_zero_radius()
 
 test_init()
 test_specialize1()
