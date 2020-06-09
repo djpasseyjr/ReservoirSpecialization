@@ -343,20 +343,24 @@ class ResComp:
         """
         if (overlap >= 1) or (overlap < 0.0):
             raise ValueError("Overlap argument must be greater than or equal to zero and less than one")
+    def _partition(self, t, time_window, overlap=0.0):
+        """ Partition `t` into subarrays that each include `time_window` seconds. The variable
+            `overlap` determines what percent of each sub-array overlaps the previous sub-array.
+            The last subarray may not include the full time window.
+        """
+        if (overlap >= 1) or (overlap < 0.0):
+            raise ValueError("Overlap argument must be greater than or equal to zero and less than one")
 
         ts = ()
         start = 0
         tmax = t[start] + time_window
-        i = 0
-        t_end = len(t) - 1
-        while  i < t_end:
-            if t[i] > tmax:
+        for i,time in enumerate(t):
+            if time > tmax:
                 end = i-1
                 ts += (t[start:end],)
                 start = start + ceil((end - start) * (1.0 - overlap))
-                i = start
+
                 tmax = t[start] + time_window
-            i += 1
         ts += (t[start:],)
         return ts
 
