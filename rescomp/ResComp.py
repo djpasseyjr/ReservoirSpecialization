@@ -5,6 +5,7 @@ from scipy import sparse
 from rescomp.specialize import *
 from math import floor, ceil
 from scipy import integrate
+from warnings import warn
 
 
 class ResComp:
@@ -118,23 +119,28 @@ class ResComp:
         return A
 
     def set_res_data_members(self):
-
         self.res_sz = self.res.shape[0]
         self.connect_p = np.sum(self.res != 0)/(self.res_sz)**2
         self.W_in        = np.random.rand(self.res_sz, self.signal_dim) - 0.5
         self.W_out       = np.zeros((self.signal_dim, self.res_sz))
         self.state_0     = np.random.rand(self.res_sz)
+        self.spect_rad = self._spectral_rad(self.res)
+        # Determine the max and min edge weights
         if self.sparse_res:
             edge_weights = list(sparse.dok_matrix(self.res).values())
         else:
             edge_weights = self.res[self.res != 0]
-        self.max_weight = np.max(edge_weights)
-        self.min_weight = np.min(edge_weights)
+        if len(edge_weights) == 0:
+            self.max_weight = 0
+            self.min_weight = 0
+        else:
+            self.max_weight = np.max(edge_weights)
+            self.min_weight = np.min(edge_weights)
         self.uniform_weights = (self.max_weight - self.min_weight) < 1e-12
 
-    def spectral_rad(self, A):
+    def _spectral_rad(self, A):
         """ Compute spectral radius via max radius of the strongly connected components """
-        g = nx.DiGraph(A)
+        g = nx.DiGraph(A.T)
         scc = nx.strongly_connected_components(g)
         rad = 0
         for cmp in scc:
@@ -152,27 +158,16 @@ class ResComp:
 
     def scale_spect_rad(self):
         """ Scales the spectral radius of the reservoir so that
-            spectral_rad(self.res) = self.spect_rad
+            _spectral_rad(self.res) = self.spect_rad
         """
-        sp_res = sparse.issparse(self.res)
-        # Remove self edges
-        if sp_res:
-            self.res = self.res.tolil()
-        for i in range(self.res.shape[0]): self.res[i,i] = 0.0
-
-        # Adjust spectral radius
-        if sp_res:
-            lam = np.linalg.eigvals(self.res.toarray())
+        curr_rad = self._spectral_rad(self.res)
+        if not np.isclose(curr_rad,0, 1e-8):
+            self.res *= self.spect_rad/curr_rad
         else:
-            lam = np.linalg.eigvals(self.res)
+            warn("Spectral radius of reservoir is close to zero. Edge weights will not be scaled")
         # end
-        curr_rad = np.max(np.abs(lam))
-        if np.isclose(curr_rad,0, 1e-8):
-            raise Exception("Reservoir is too sparse to find spectral radius")
-        # end
-        self.res *= self.spect_rad/curr_rad
         # Convert to csr if sparse
-        if sp_res:
+        if sparse.issparse(self.res):
             self.res = self.res.tocsr()
 
 
@@ -190,7 +185,11 @@ class ResComp:
         """ Create the sparse adj matrix of a random directed graph
             on n nodes with probability of any link equal to connect_p
         """
-        return sparse.random(n,n, density=self.connect_p, dtype=float, format="lil", data_rvs=self.weights)
+        A = sparse.random(n,n, density=self.connect_p, dtype=float, format="lil", data_rvs=self.weights)
+        # Remove self edges
+        for i in range(n):
+             A[i,i] = 0.0
+        return A
 
     def preferential_attachment(self, n, m=2):
         """ Create a network via preferential attachment
@@ -359,7 +358,6 @@ class ResComp:
                 end = i-1
                 ts += (t[start:end],)
                 start = start + ceil((end - start) * (1.0 - overlap))
-
                 tmax = t[start] + time_window
         ts += (t[start:],)
         return ts
