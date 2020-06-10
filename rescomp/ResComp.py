@@ -333,15 +333,6 @@ class ResComp:
             targets += (u(time).T,)
         return internals, targets
 
-
-
-    def _partition(self, t, time_window, overlap=0.0):
-        """ Partition `t` into subarrays that each include `time_window` seconds. The variable
-            `overlap` determines what percent of each sub-array overlaps the previous sub-array.
-            The last subarray may not include the full time window.
-        """
-        if (overlap >= 1) or (overlap < 0.0):
-            raise ValueError("Overlap argument must be greater than or equal to zero and less than one")
     def _partition(self, t, time_window, overlap=0.0):
         """ Partition `t` into subarrays that each include `time_window` seconds. The variable
             `overlap` determines what percent of each sub-array overlaps the previous sub-array.
