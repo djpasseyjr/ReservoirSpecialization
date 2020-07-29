@@ -23,9 +23,9 @@ class DrivenResComp(ResComp):
         """
         # Reservoir ode
         def res_f(r,t):
-            transform_out = self.sigma*self.W_in @ out_signal(t)
-            transform_in = self.delta*self.W_drive @ drive_signal(t)
-            return self.gamma*(-1*r + self.activ_f(self.res @ r + transform_out + transform_in))
+            transform_out = self.sigma * self.W_in @ out_signal(t)
+            transform_drive = self.delta * self.W_drive @ drive_signal(t)
+            return self.gamma*(-1*r + self.activ_f(self.res @ r + transform_out + transform_drive))
 
         r_0    = self.state_0
         states = integrate.odeint(res_f,r_0,t)
@@ -49,6 +49,8 @@ class DrivenResComp(ResComp):
         """
         driven_states    = self.drive(t, out_signal, drive_signal)
         true_states      = out_signal(t)
+        true_states = self.time_dim_0(t, out_signal, true_states) # Ensure number of columns == signal dimension
+
         self.W_out       = self.solve_wout(driven_states, true_states)
         self.is_trained  = True
         # Compute error

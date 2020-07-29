@@ -60,8 +60,6 @@ class ResComp:
 
         # Set model attributes
         self.signal_dim  = signal_dim
-        self.W_in        = np.random.rand(res_sz, num_in) - 0.5
-        self.W_out       = np.zeros((num_out, res_sz))
         self.gamma       = gamma
         self.sigma       = sigma
         self.activ_f     = activ_f
@@ -77,6 +75,7 @@ class ResComp:
         self.min_weight  = min_weight
         self.max_weight  = max_weight
         self.uniform_weights = uniform_weights
+        self.time_dim = None
 
         # Make reservoir based on number of arguments
         if len(args) == 0:
@@ -226,6 +225,26 @@ class ResComp:
     #---------------------------
     # Train and Predict
     #---------------------------
+    def time_dimension(self, t, u):
+        """ Determine if the size of the first or second dimension of u(t) varies with t """
+        if len(t) <= 1:
+            return None
+        m2, n2 = u(t[:2]).shape
+        test_t = np.array([t[0], (t[0] + t[1]) / 2,  t[1]])
+        m3, n3 = u(test_t).shape
+        if m2 != m3:
+            self.time_dim = 0
+        else:
+            self.time_dim = 1
+
+    def time_dim_0(self, t, u, state_array):
+        """ Ensure that u(t) produces a (n timesteps) x (signal dimension) array """
+        self.time_dimension(t, u)
+        if self.time_dim is None:
+            return state_array
+        elif self.time_dim == 1:
+            return state_array.T
+        return state_array
 
     def drive(self,t,u):
         """
@@ -236,11 +255,11 @@ class ResComp:
 
         # Reservoir ode
         def res_f(r,t):
-            return self.gamma*(-1*r + self.activ_f(self.res @ r + self.sigma*self.W_in @ u(t)))
+            return self.gamma * (-1 * r + self.activ_f(self.res @ r + self.sigma * self.W_in @ u(t)))
         #end
 
         r_0    = self.state_0
-        states = integrate.odeint(res_f,r_0,t)
+        states = integrate.odeint(res_f, r_0, t)
         self.state_0 = states[-1]
         return states
     # end
@@ -265,8 +284,9 @@ class ResComp:
         err (float) : Error in the fit (2-norm of residuals)
             Optionally returns: drive_states : (ndarray) of node states
         """
-        driven_states    = self.drive(t,u)
-        true_states      = u(t).T
+        driven_states = self.drive(t,u)
+        true_states = u(t)
+        true_states = self.time_dim_0(t, u, true_states) # Ensure number of columns == signal dimension
         self.W_out = self.solve_wout(driven_states, true_states)
         self.is_trained = True
         # Compute error
@@ -336,7 +356,7 @@ class ResComp:
     def _partition(self, t, time_window, overlap=0.0):
         """ Partition `t` into subarrays that each include `time_window` seconds. The variable
             `overlap` determines what percent of each sub-array overlaps the previous sub-array.
-            The last subarray may not include the full time window.
+            The last subarray may not contain a full time window.
         """
         if (overlap >= 1) or (overlap < 0.0):
             raise ValueError("Overlap argument must be greater than or equal to zero and less than one")
@@ -345,10 +365,13 @@ class ResComp:
         start = 0
         tmax = t[start] + time_window
         for i,time in enumerate(t):
-            if time > tmax:
-                end = i-1
+            while time > tmax:
+                end = i
+                if end - start == 1:
+                    warn("rescomp.ResComp._partition partitioning time array into single entry arrays. Consider increasing time window")
                 ts += (t[start:end],)
-                start = start + ceil((end - start) * (1.0 - overlap))
+                diff = floor((end - start) * (1.0 - overlap))
+                start += max(diff, 1)
                 tmax = t[start] + time_window
         ts += (t[start:],)
         return ts

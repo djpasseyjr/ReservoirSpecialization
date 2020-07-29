@@ -1,4 +1,4 @@
-from ResComp import *
+from rescomp import *
 from specializeGraph import *
 from math import floor
 from scipy import integrate
@@ -18,30 +18,56 @@ def lorenz_equ(x0=[-20, 10, -.5], begin=0, end=60, timesteps=60000, train_per=.6
     u = integrate.solve_ivp(lorentz_deriv, (begin,end),x0, dense_output=True).sol
     return train_t, test_t, u
 
-diff_eq_params = {"x0": [-20, 10, -.5],
-                  "begin": 0,
-                  "end": 60,
-                  "timesteps":60000,
-                  "train_per": .66,
-                  "solver": lorenz_equ
-                 }
+ORIG_RES = {
+    "res_sz": 30,
+    "activ_f": np.tanh,
+    "connect_p": .12,
+    "ridge_alpha": .0001,
+    "spect_rad": .9,
+    "gamma": 1.,
+    "sigma": 0.12,
+    "uniform_weights": True,
+    "solver": "ridge",
+    "sparse_res": True,
+    "signal_dim": 3
+}
 
-RES_PARAMS = {"res_sz": 30,
-              "activ_f": np.tanh,
-              "connect_p": .12,
-              "ridge_alpha": .0001,
-              "spect_rad": .9,
-              "gamma": 1.,
-              "sigma": 0.12,
-              "uniform_weights": True,
-              "solver": "ridge",
-              "sparse_res": True,
-              "signal_dim": 3
-              }
+LORENZ = {
+    "x0": [-20, 10, -.5],
+    "begin": 0,
+    "end": 60,
+    "timesteps":60000,
+    "train_per": .66,
+    "solver": lorenz_equ
+}
+
+RES = {
+    "res_sz": 50,
+    "activ_f": np.tanh,
+    "connect_p": .12,
+    "ridge_alpha": .0001,
+    "spect_rad": 0.5,
+    "gamma": 5.,
+    "sigma": 1.5,
+    "uniform_weights": True,
+    "solver": "ridge",
+    "sparse_res": True,
+    "signal_dim": 2
+}
+
+DRIVEN = {
+    "delta": 0.01,
+    "drive_dim": 2
+}
+
+
+BATCH = {
+    "batchsize": 21,
+}
 
 
 def test_rc():
-    params = deepcopy(RES_PARAMS)
+    params = deepcopy(ORIG_RES)
     params["solver"] = "ridge"
     params["ridge_alpha"] = 0.00001
     params["uniform_weights"] = True
@@ -86,14 +112,14 @@ def test_ctrl():
     scores = rc.score_nodes(train_t, u, r_0=r_0)
     worst_nodes = np.argsort(scores)[:-num_nodes]
     rc.specialize(worst_nodes, random_W_in=False)
-    param_copy = deepcopy(RES_PARAMS)
+    param_copy = deepcopy(ORIG_RES)
     param_copy["res_sz"] = rc.res.shape[0]
     param_copy["connect_p"] = np.sum(rc.res != 0)/ (rc.res.shape[0]**2)
     rc_ctrl = ResComp(**param_copy)
     assert rc.res.shape[0] == rc_ctrl.res.shape[0]
 
 def test_ResComp_init():
-    params = deepcopy(RES_PARAMS)
+    params = deepcopy(ORIG_RES)
     params["uniform_weights"] = True
     A = make_path_matrix()
     sp_rc = ResComp(A, **params)
@@ -109,7 +135,7 @@ def test_ResComp_init():
     assert not sparse.issparse(ResComp(**dense_params).res)
 
 def test_topologies():
-    params = deepcopy(RES_PARAMS)
+    params = deepcopy(ORIG_RES)
     params["network"] = "preferential attachment"
     rc = ResComp(**params)
     assert np.sum(rc.res != 0) == 2*rc.res_sz - 4
@@ -235,17 +261,168 @@ def test_zero_radius():
     rc = ResComp(A, sparse_res=True)
     assert rc.spect_rad == 0.0
 
+# Batch and Driven Reservoir Computers
+
+# # Test initialization
+
+def init_correct(model, params):
+    rc = model(**params)
+    for k in params.keys():
+        msg = f"Key {k} evaluates differently in {model}, ({rc.__dict__[k]}) and params ({params[k]})"
+        if k in ["connect_p", "spect_rad"]:
+            assert np.abs(rc.__dict__[k] - params[k]) <= .01
+        else:
+            assert rc.__dict__[k] == params[k], msg
+    return True
+
+def test_each_model(f):
+    assert f(ResComp, RES)
+    assert f(DrivenResComp, {**DRIVEN, **RES})
+    assert f(BatchResComp, {**BATCH, **RES})
+    assert f(BatchDrivenResComp, {**BATCH, **DRIVEN, **RES})
+
+# # Test driving
+def make_test_data():
+    tr = np.linspace(0,10, 500)
+    ts = np.linspace(10,15, 250)
+    drive = lambda x: np.array([np.sin(x), np.cos(x)]).T
+    signal = lambda x: np.array([np.cos(x), -1 * np.sin(x)]).T
+    return tr, ts, drive, signal
+
+
+def drive_correct(model, ps):
+    driven = model in [DrivenResComp, BatchDrivenResComp]
+    tr, ts, drive, signal = make_test_data()
+    rc = model(**ps)
+    if driven:
+        out = rc.drive(tr, drive, signal)
+    else:
+        out = rc.drive(tr, signal)
+    if out is not None:
+        m, n = out.shape
+        return m == len(tr) and n == rc.res_sz
+    else:
+        return not np.all(rc.Hbar == 0)
+
+def test_batch_size_too_big():
+    ps = {**RES, "batchsize": 255}
+    assert drive_correct(BatchResComp, ps)
+    assert drive_correct(BatchDrivenResComp, {**ps, **DRIVEN})
+
+# # Test fitting
+def fit_correct(model, ps):
+    driven = not model in [ResComp, BatchResComp]
+    rc = model(**ps)
+    tr, ts, drive, signal = make_test_data()
+    u = lambda x: signal(x).T # Signal or transposed signal should work
+    if driven:
+        err = rc.fit(tr, signal, drive)
+        err = rc.fit(tr, u, drive)
+    else:
+        err = rc.fit(tr, signal)
+        err = rc.fit(tr, u)
+    return True
+
+# # Test Predicitions
+def predict_correct(model, ps):
+    driven = not model in [ResComp, BatchResComp]
+    rc = model(**ps)
+    tr, ts, drive, signal = make_test_data()
+    rc.state_0 = rc.W_in @ signal(tr[0])
+    if driven:
+        err = rc.fit(tr, signal, drive)
+        pre = rc.predict(tr, drive, u_0=signal(tr[0]))
+    else:
+        err = rc.fit(tr, signal)
+        pre = rc.predict(tr, u_0=signal(tr[0]))
+    error = np.mean(np.linalg.norm(pre.T - signal(tr), ord=2, axis=0)**2)**(1/2)
+    if error < 1.0:
+        return True
+    return False
+
+# # Test inverse free
+def inv_free_correct():
+    models = [BatchResComp, BatchDrivenResComp]
+    params = [{**RES, **BATCH}, {**RES, **BATCH, **DRIVEN}]
+    tr, ts, drive, signal = make_test_data()
+    for model, ps in zip(models, params):
+        rc = model(**ps)
+        if model == BatchResComp:
+            rc.fit(tr, signal, inv_free=True)
+            pre = rc.predict(tr, u_0=signal(tr[0]), inv_free=True)
+        else:
+            rc.fit(tr, signal, drive, inv_free=True)
+            pre = rc.predict(tr, drive, u_0=signal(tr[0]), inv_free=True)
+        assert not np.all(rc.Hbar == 0)
+        assert not np.all(rc.Ybar == 0)
+        error = np.mean(np.linalg.norm(pre.T - signal(tr), ord=2, axis=0)**2)**(1/2)
+        assert error < 1.0
+
+# # Test partition
+
+def random_time_array(n, start=0):
+    t = [start]
+    def nextsample(t):
+        t[0] += np.random.rand()
+        return t[0]
+    return [nextsample(t) for i in range(n)]
+
+def uniform_time_array(n, start=0, end=500):
+    return np.linspace(start, end, n)
+
+
+def test_window():
+    """ Make sure each partition is smaller than the given time window """
+    rc = ResComp(**RES)
+    for window in [.5, 3, 1001]:
+        for timef in [random_time_array, uniform_time_array]:
+            times = timef(1000)
+            ts = rc._partition(times, window, 0)
+            for sub in ts:
+                assert sub[-1] - sub[0] <= window + 1e-12
+
+def test_overlap():
+    """ Ensure that overlap is correct on average """
+    rc = ResComp(**RES)
+    for window in [30, 100]:
+        for overlap in [.1, .9,]:
+            for timef in [random_time_array, uniform_time_array]:
+                times = timef(1000)
+                ts = rc._partition(times, window, overlap)
+                prev = None
+                over = 0.0
+                for sub in ts:
+                    if prev is not None:
+                        inters = set(sub).intersection(set(prev))
+                        over += len(inters) / len(sub)
+                    prev = sub
+                assert np.abs(over/len(ts) - overlap) < .05
+
+# Test ResComp
 test_rc()
-test_spec_best()
 test_ctrl()
+test_init()
 test_ResComp_init()
 test_topologies()
 test_spect_rad()
 test_zero_radius()
 
-test_init()
+# Test specialization
+test_spec_best()
 test_specialize1()
 test_specialize2()
 test_specialize3()
 test_origin()
 test_origin2()
+
+# Additional tests for new models
+test_each_model(init_correct)
+test_each_model(drive_correct)
+test_batch_size_too_big()
+test_each_model(fit_correct)
+test_each_model(predict_correct)
+inv_free_correct()
+test_overlap()
+test_window()
+
+print("All tests passed")
